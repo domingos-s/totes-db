@@ -360,7 +360,7 @@ function upsertFromForm() {
   };
 
   const hasGeo = Number.isFinite(record.latitude) && Number.isFinite(record.longitude);
-  if (!record.title || !record.contents || !record.season || (!record.location && !hasGeo)) return;
+  if (!record.title || !record.contents || !record.season) return;
   if (!record.location && hasGeo) record.location = "GPS captured";
 
   if (existing) {
