@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Totes.DB" />
-  <meta name="description" content="QR-based garage tote inventory tracker." />
+  <meta name="description" content="QR-based tote inventory tracker for any location." />
 
   <title>Totes.DB</title>
 
@@ -16,12 +16,11 @@
   <link rel="icon" href="icons/icon-192.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
 
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
 </head>
 <body>
   <header class="app-header">
     <div>
-      <p class="eyebrow">Garage inventory</p>
+      <p class="eyebrow">Home inventory</p>
       <h1>Totes.DB</h1>
     </div>
     <button id="installBtn" class="ghost hidden">Install app</button>
@@ -40,7 +39,7 @@
     </section>
 
     <section class="toolbar card">
-      <input id="searchInput" type="search" placeholder="Search title, contents, season, or QR ID…" />
+      <input id="searchInput" type="search" placeholder="Search title, contents, location, season, or QR ID…" />
       <select id="seasonFilter">
         <option value="">All seasons</option>
         <option>Spring</option>
@@ -90,6 +89,11 @@
       </label>
 
       <label>
+        Location
+        <input id="location" name="location" required placeholder="Garage shelf A, attic, closet 2…" />
+      </label>
+
+      <label>
         Typical access season
         <select id="season" name="season" required>
           <option value="">Select season</option>
@@ -106,6 +110,21 @@
         <div class="spacer"></div>
         <button type="button" id="cancelBtn" class="secondary">Cancel</button>
         <button id="saveBtn" value="default">Save tote</button>
+      </div>
+    </form>
+  </dialog>
+
+
+  <dialog id="messageDialog">
+    <form id="messageForm" method="dialog">
+      <header class="dialog-header">
+        <h2 id="messageTitle">Notice</h2>
+      </header>
+      <p id="messageBody" class="dialog-message"></p>
+      <div class="dialog-actions">
+        <button type="button" id="messageCancelBtn" class="secondary hidden">Cancel</button>
+        <div class="spacer"></div>
+        <button id="messageOkBtn" value="default">OK</button>
       </div>
     </form>
   </dialog>
