@@ -41,6 +41,7 @@ const els = {
   longitude: $("longitude"),
   captureLocationBtn: $("captureLocationBtn"),
   locationHelp: $("locationHelp"),
+  geoReadout: $("geoReadout"),
   messageDialog: $("messageDialog"),
   messageTitle: $("messageTitle"),
   messageBody: $("messageBody"),
@@ -404,6 +405,13 @@ async function captureLocation() {
       els.location.value = "GPS captured";
     }
     els.locationHelp.textContent = "GPS captured. You can keep this label or replace it with your own location text.";
+    state.dialogGeo = {
+      lat: position.coords.latitude,
+      lng: position.coords.longitude,
+      accuracy: position.coords.accuracy,
+      capturedAt: new Date().toISOString(),
+    };
+    updateGeoReadout();
   } catch {
     await showModalMessage({ title: "Location capture failed", message: "Unable to capture GPS location. Check location permission and try again." });
   } finally {
