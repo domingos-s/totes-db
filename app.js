@@ -278,6 +278,7 @@ async function render() {
         <button data-action="print-one" data-id="${tote.id}">Print</button>
         <button class="secondary" data-action="download-qr" data-id="${tote.id}">Download QR</button>
         <button class="secondary" data-action="open-map" data-id="${tote.id}">Open Map</button>
+        <button class="secondary" data-action="share" data-id="${tote.id}">Share</button>
       </div>
     `;
     els.toteGrid.appendChild(card);
@@ -468,19 +469,84 @@ async function printLabels(totes = state.totes) {
 }
 
 
+
+function buildGoogleMapsUrl(tote) {
+  if (!Number.isFinite(tote.latitude) || !Number.isFinite(tote.longitude)) return null;
+  const coords = `${tote.latitude},${tote.longitude}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coords)}`;
+}
+
+function buildAppleMapsUrl(tote) {
+  if (!Number.isFinite(tote.latitude) || !Number.isFinite(tote.longitude)) return null;
+  const coords = `${tote.latitude},${tote.longitude}`;
+  const label = tote.qrCode || tote.title || "Tote";
+  return `https://maps.apple.com/?ll=${encodeURIComponent(coords)}&q=${encodeURIComponent(label)}`;
+}
+
+function buildShareText(tote) {
+  const lines = [
+    `Tote: ${tote.title}`,
+    `QR ID: ${tote.qrCode}`,
+    `Season: ${tote.season}`,
+    `Location: ${tote.location || "Unspecified"}`,
+    "Contents:",
+    tote.contents,
+  ];
+
+  const googleUrl = buildGoogleMapsUrl(tote);
+  const appleUrl = buildAppleMapsUrl(tote);
+  if (googleUrl || appleUrl) {
+    lines.push("", "Maps:");
+    if (googleUrl) lines.push(`Google Maps: ${googleUrl}`);
+    if (appleUrl) lines.push(`Apple Maps: ${appleUrl}`);
+  }
+
+  return lines.join("\n");
+}
+
+async function shareTote(tote) {
+  const text = buildShareText(tote);
+  const shareData = {
+    title: `Tote record: ${tote.title}`,
+    text,
+  };
+
+  if (navigator.share) {
+    try {
+      await navigator.share(shareData);
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      await showModalMessage({
+        title: "Copied to clipboard",
+        message: "Sharing is not available in this browser. The tote record text was copied so you can paste it into a message.",
+      });
+      return;
+    } catch (error) {
+      console.warn("Clipboard copy failed", error);
+    }
+  }
+
+  await showModalMessage({
+    title: "Share unavailable",
+    message: "This browser does not support native sharing here. You can still copy the tote details manually from the card.",
+  });
+}
+
 function buildMapUrl(tote) {
   if (!Number.isFinite(tote.latitude) || !Number.isFinite(tote.longitude)) return null;
 
-  const coords = `${tote.latitude},${tote.longitude}`;
-  const label = tote.qrCode || tote.title || "Tote";
   const isAppleDevice = /iPad|iPhone|iPod|Mac/.test(navigator.userAgent);
-
-  if (isAppleDevice) {
-    return `https://maps.apple.com/?ll=${encodeURIComponent(coords)}&q=${encodeURIComponent(label)}`;
-  }
+  if (isAppleDevice) return buildAppleMapsUrl(tote);
 
   // Open a map pin view at the tote coordinates (not turn-by-turn directions).
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coords)}`;
+  return buildGoogleMapsUrl(tote);
 }
 
 async function openMapForTote(tote) {
@@ -660,6 +726,10 @@ function bindEvents() {
     if (btn.dataset.action === "open-map") {
       const tote = state.totes.find((t) => t.id === id);
       if (tote) openMapForTote(tote);
+    }
+    if (btn.dataset.action === "share") {
+      const tote = state.totes.find((t) => t.id === id);
+      if (tote) shareTote(tote);
     }
   });
 
