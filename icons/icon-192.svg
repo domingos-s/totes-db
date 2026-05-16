@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="Totes.DB icon">
+  <rect width="192" height="192" rx="42" fill="#0f172a"/>
+  <rect x="34" y="50" width="124" height="94" rx="14" fill="#f8fafc"/>
+  <path d="M50 50h92l-10-18H60L50 50z" fill="#cbd5e1"/>
+  <rect x="53" y="72" width="23" height="23" fill="#0f172a"/>
+  <rect x="84" y="72" width="12" height="12" fill="#0f172a"/>
+  <rect x="108" y="72" width="31" height="12" fill="#0f172a"/>
+  <rect x="53" y="103" width="12" height="12" fill="#0f172a"/>
+  <rect x="77" y="103" width="19" height="19" fill="#0f172a"/>
+  <rect x="108" y="96" width="12" height="12" fill="#0f172a"/>
+  <rect x="127" y="103" width="12" height="25" fill="#0f172a"/>
+  <rect x="53" y="127" width="43" height="7" fill="#0f172a"/>
+  <text x="96" y="169" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800" fill="#f8fafc">Totes.DB</text>
+</svg>
