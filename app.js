@@ -277,6 +277,7 @@ async function render() {
         <button class="secondary" data-action="edit" data-id="${tote.id}">Edit</button>
         <button data-action="print-one" data-id="${tote.id}">Print</button>
         <button class="secondary" data-action="download-qr" data-id="${tote.id}">Download QR</button>
+        <button class="secondary" data-action="open-map" data-id="${tote.id}">Open Map</button>
       </div>
     `;
     els.toteGrid.appendChild(card);
@@ -467,6 +468,25 @@ async function printLabels(totes = state.totes) {
 }
 
 
+function buildMapUrl(tote) {
+  if (!Number.isFinite(tote.latitude) || !Number.isFinite(tote.longitude)) return null;
+  const coords = `${tote.latitude},${tote.longitude}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coords)}`;
+}
+
+async function openMapForTote(tote) {
+  const mapUrl = buildMapUrl(tote);
+  if (!mapUrl) {
+    await showModalMessage({
+      title: "GPS missing",
+      message: "This tote does not have GPS coordinates yet. Edit the tote and capture location first.",
+    });
+    return;
+  }
+
+  window.open(mapUrl, "_blank", "noopener,noreferrer");
+}
+
 async function downloadQRCode(tote) {
   const canvas = document.createElement("canvas");
   try {
@@ -627,6 +647,10 @@ function bindEvents() {
     if (btn.dataset.action === "download-qr") {
       const tote = state.totes.find((t) => t.id === id);
       if (tote) downloadQRCode(tote);
+    }
+    if (btn.dataset.action === "open-map") {
+      const tote = state.totes.find((t) => t.id === id);
+      if (tote) openMapForTote(tote);
     }
   });
 
