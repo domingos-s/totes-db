@@ -91,8 +91,13 @@
 
       <label>
         Location
-        <input id="location" name="location" required placeholder="Garage shelf A, attic, closet 2…" />
+        <input id="location" name="location" placeholder="Optional label: Garage shelf A, attic, closet 2…" />
       </label>
+      <p id="locationHelp" class="dialog-message">Optional: type a location label or capture GPS. You can update this later when editing.</p>
+      <input type="hidden" id="latitude" name="latitude" />
+      <input type="hidden" id="longitude" name="longitude" />
+      <button type="button" id="captureLocationBtn" class="secondary">Capture GPS location</button>
+      <p class="dialog-message">GPS capture is only started when you tap the button above. You can add or update location details later in edit mode.</p>
 
       <div class="geo-capture">
         <button type="button" id="useLocationBtn" class="secondary">Use current location</button>
