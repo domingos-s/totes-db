@@ -58,16 +58,26 @@ function qrPayload(qrCode) {
 }
 
 async function renderQRCode(target, payload, width = 160) {
-  await QRCode.toCanvas(target, payload, {
-    width,
-    margin: 1,
-    errorCorrectionLevel: "M",
-    color: {
-      dark: "#0f172a",
-      light: "#ffffff",
-    },
+  const size = Math.max(64, Number(width) || 160);
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(payload)}`;
+
+  const image = new Image();
+  image.decoding = "async";
+  image.crossOrigin = "anonymous";
+
+  await new Promise((resolve, reject) => {
+    image.onload = resolve;
+    image.onerror = () => reject(new Error("QR code generator failed to load."));
+    image.src = qrUrl;
   });
+
+  target.width = size;
+  target.height = size;
+  const ctx = target.getContext("2d");
+  ctx.clearRect(0, 0, size, size);
+  ctx.drawImage(image, 0, 0, size, size);
 }
+
 
 function filteredTotes() {
   const q = els.searchInput.value.trim().toLowerCase();
@@ -106,10 +116,15 @@ async function render() {
       <div class="card-actions">
         <button class="secondary" data-action="edit" data-id="${tote.id}">Edit</button>
         <button data-action="print-one" data-id="${tote.id}">Print</button>
+        <button class="secondary" data-action="download-qr" data-id="${tote.id}">Download QR</button>
       </div>
     `;
     els.toteGrid.appendChild(card);
-    await renderQRCode(card.querySelector("canvas"), qrPayload(tote.qrCode), 120);
+    try {
+      await renderQRCode(card.querySelector("canvas"), qrPayload(tote.qrCode), 120);
+    } catch (error) {
+      console.warn(error);
+    }
   }
 }
 
@@ -216,10 +231,38 @@ async function printLabels(totes = state.totes) {
       </div>
     `;
     els.printArea.appendChild(label);
-    await renderQRCode(label.querySelector("canvas"), qrPayload(tote.qrCode), 180);
+    try {
+      await renderQRCode(label.querySelector("canvas"), qrPayload(tote.qrCode), 180);
+    } catch (error) {
+      console.warn(error);
+      alert("QR code generator failed to load. Check your internet connection and refresh.");
+      return;
+    }
   }
 
   window.print();
+}
+
+
+async function downloadQRCode(tote) {
+  const canvas = document.createElement("canvas");
+  try {
+    await renderQRCode(canvas, qrPayload(tote.qrCode), 512);
+  } catch (error) {
+    console.warn(error);
+    alert("QR code generator failed to load. Check your internet connection and refresh.");
+    return;
+  }
+
+  const a = document.createElement("a");
+  try {
+    a.href = canvas.toDataURL("image/png");
+  } catch {
+    a.href = `https://api.qrserver.com/v1/create-qr-code/?size=512x512&format=png&data=${encodeURIComponent(qrPayload(tote.qrCode))}`;
+  }
+  a.download = `${tote.qrCode}.png`;
+  a.rel = "noopener";
+  a.click();
 }
 
 function exportJson() {
@@ -303,6 +346,10 @@ function bindEvents() {
     if (btn.dataset.action === "print-one") {
       const tote = state.totes.find((t) => t.id === id);
       if (tote) printLabels([tote]);
+    }
+    if (btn.dataset.action === "download-qr") {
+      const tote = state.totes.find((t) => t.id === id);
+      if (tote) downloadQRCode(tote);
     }
   });
 
