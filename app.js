@@ -471,9 +471,7 @@ async function printLabels(totes = state.totes) {
 function buildMapUrl(tote) {
   if (!Number.isFinite(tote.latitude) || !Number.isFinite(tote.longitude)) return null;
 
-  const lat = tote.latitude;
-  const lng = tote.longitude;
-  const coords = `${lat},${lng}`;
+  const coords = `${tote.latitude},${tote.longitude}`;
   const label = tote.qrCode || tote.title || "Tote";
   const isAppleDevice = /iPad|iPhone|iPod|Mac/.test(navigator.userAgent);
 
@@ -481,7 +479,9 @@ function buildMapUrl(tote) {
     return `https://maps.apple.com/?ll=${encodeURIComponent(coords)}&q=${encodeURIComponent(label)}`;
   }
 
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${coords} (${label})`)}`;
+  // Google Maps is strict about coordinate parsing in query strings.
+  // Keep coordinates as the destination and pass the label separately.
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(coords)}&travelmode=driving&dir_action=navigate`;
 }
 
 async function openMapForTote(tote) {
