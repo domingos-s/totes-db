@@ -58,6 +58,10 @@ function qrPayload(qrCode) {
 }
 
 async function renderQRCode(target, payload, width = 160) {
+  if (!window.QRCode?.toCanvas) {
+    throw new Error("QR code generator failed to load.");
+  }
+
   await QRCode.toCanvas(target, payload, {
     width,
     margin: 1,
@@ -106,10 +110,15 @@ async function render() {
       <div class="card-actions">
         <button class="secondary" data-action="edit" data-id="${tote.id}">Edit</button>
         <button data-action="print-one" data-id="${tote.id}">Print</button>
+        <button class="secondary" data-action="download-qr" data-id="${tote.id}">Download QR</button>
       </div>
     `;
     els.toteGrid.appendChild(card);
-    await renderQRCode(card.querySelector("canvas"), qrPayload(tote.qrCode), 120);
+    try {
+      await renderQRCode(card.querySelector("canvas"), qrPayload(tote.qrCode), 120);
+    } catch (error) {
+      console.warn(error);
+    }
   }
 }
 
@@ -216,10 +225,33 @@ async function printLabels(totes = state.totes) {
       </div>
     `;
     els.printArea.appendChild(label);
-    await renderQRCode(label.querySelector("canvas"), qrPayload(tote.qrCode), 180);
+    try {
+      await renderQRCode(label.querySelector("canvas"), qrPayload(tote.qrCode), 180);
+    } catch (error) {
+      console.warn(error);
+      alert("QR code generator failed to load. Check your internet connection and refresh.");
+      return;
+    }
   }
 
   window.print();
+}
+
+
+async function downloadQRCode(tote) {
+  const canvas = document.createElement("canvas");
+  try {
+    await renderQRCode(canvas, qrPayload(tote.qrCode), 512);
+  } catch (error) {
+    console.warn(error);
+    alert("QR code generator failed to load. Check your internet connection and refresh.");
+    return;
+  }
+
+  const a = document.createElement("a");
+  a.href = canvas.toDataURL("image/png");
+  a.download = `${tote.qrCode}.png`;
+  a.click();
 }
 
 function exportJson() {
@@ -303,6 +335,10 @@ function bindEvents() {
     if (btn.dataset.action === "print-one") {
       const tote = state.totes.find((t) => t.id === id);
       if (tote) printLabels([tote]);
+    }
+    if (btn.dataset.action === "download-qr") {
+      const tote = state.totes.find((t) => t.id === id);
+      if (tote) downloadQRCode(tote);
     }
   });
 
