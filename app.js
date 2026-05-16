@@ -479,9 +479,8 @@ function buildMapUrl(tote) {
     return `https://maps.apple.com/?ll=${encodeURIComponent(coords)}&q=${encodeURIComponent(label)}`;
   }
 
-  // Google Maps is strict about coordinate parsing in query strings.
-  // Keep coordinates as the destination and pass the label separately.
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(coords)}&travelmode=driving&dir_action=navigate`;
+  // Open a map pin view at the tote coordinates (not turn-by-turn directions).
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coords)}`;
 }
 
 async function openMapForTote(tote) {
