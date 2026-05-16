@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Totes.DB" />
+  <meta name="description" content="QR-based garage tote inventory tracker." />
+
+  <title>Totes.DB</title>
+
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.svg" />
+  <link rel="icon" href="icons/icon-192.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Garage inventory</p>
+      <h1>Totes.DB</h1>
+    </div>
+    <button id="installBtn" class="ghost hidden">Install app</button>
+  </header>
+
+  <main>
+    <section class="hero card">
+      <div>
+        <h2>QR labels for every tote.</h2>
+        <p>Create a tote record, print the QR label, attach it to the tote, then scan it later to pull up the contents.</p>
+      </div>
+      <div class="hero-actions">
+        <button id="newToteBtn">New tote</button>
+        <button id="printLabelsBtn" class="secondary">Print labels</button>
+      </div>
+    </section>
+
+    <section class="toolbar card">
+      <input id="searchInput" type="search" placeholder="Search title, contents, season, or QR ID…" />
+      <select id="seasonFilter">
+        <option value="">All seasons</option>
+        <option>Spring</option>
+        <option>Summer</option>
+        <option>Fall</option>
+        <option>Winter</option>
+        <option>Year-round</option>
+      </select>
+      <button id="exportBtn" class="secondary">Export JSON</button>
+      <label class="import-label">
+        Import JSON
+        <input id="importInput" type="file" accept="application/json" />
+      </label>
+    </section>
+
+    <section id="emptyState" class="empty card hidden">
+      <h2>No totes yet</h2>
+      <p>Add your first tote record and print a QR label.</p>
+      <button id="emptyNewToteBtn">Add first tote</button>
+    </section>
+
+    <section id="toteGrid" class="tote-grid"></section>
+  </main>
+
+  <dialog id="toteDialog">
+    <form id="toteForm" method="dialog">
+      <header class="dialog-header">
+        <h2 id="dialogTitle">New tote</h2>
+        <button type="button" id="closeDialogBtn" class="icon-btn" aria-label="Close">×</button>
+      </header>
+
+      <input type="hidden" id="recordId" />
+
+      <label>
+        QR code / Tote ID
+        <input id="qrCode" name="qrCode" readonly />
+      </label>
+
+      <label>
+        Tote title
+        <input id="title" name="title" required placeholder="Christmas decorations, camping gear…" />
+      </label>
+
+      <label>
+        Contents
+        <textarea id="contents" name="contents" rows="6" placeholder="List the contents of the tote…" required></textarea>
+      </label>
+
+      <label>
+        Typical access season
+        <select id="season" name="season" required>
+          <option value="">Select season</option>
+          <option>Spring</option>
+          <option>Summer</option>
+          <option>Fall</option>
+          <option>Winter</option>
+          <option>Year-round</option>
+        </select>
+      </label>
+
+      <div class="dialog-actions">
+        <button type="button" id="deleteBtn" class="danger hidden">Delete</button>
+        <div class="spacer"></div>
+        <button type="button" id="cancelBtn" class="secondary">Cancel</button>
+        <button id="saveBtn" value="default">Save tote</button>
+      </div>
+    </form>
+  </dialog>
+
+  <section id="printArea" aria-hidden="true"></section>
+
+  <script src="app.js"></script>
+</body>
+</html>
