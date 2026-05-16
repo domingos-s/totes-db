@@ -34,6 +34,7 @@
       </div>
       <div class="hero-actions">
         <button id="newToteBtn">New tote</button>
+        <button id="scanQrBtn" class="secondary">Scan QR</button>
         <button id="printLabelsBtn" class="secondary">Print labels</button>
       </div>
     </section>
@@ -114,6 +115,25 @@
     </form>
   </dialog>
 
+
+
+  <dialog id="scannerDialog">
+    <form id="scannerForm" method="dialog">
+      <header class="dialog-header">
+        <h2>Scan tote QR</h2>
+        <button type="button" id="closeScannerBtn" class="icon-btn" aria-label="Close">×</button>
+      </header>
+      <p class="dialog-message">Point your camera at a tote QR code.</p>
+      <div class="scanner-frame">
+        <video id="scannerVideo" autoplay playsinline muted></video>
+      </div>
+      <div id="scannerStatus" class="qr-id">Waiting for camera…</div>
+      <div class="dialog-actions">
+        <div class="spacer"></div>
+        <button type="button" id="scannerCancelBtn" class="secondary">Close</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="messageDialog">
     <form id="messageForm" method="dialog">

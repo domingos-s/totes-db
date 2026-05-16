@@ -6,6 +6,8 @@ const state = {
   editingId: null,
   deferredPrompt: null,
   modalResolver: null,
+  scannerStream: null,
+  scannerInterval: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -15,6 +17,7 @@ const els = {
   newToteBtn: $("newToteBtn"),
   emptyNewToteBtn: $("emptyNewToteBtn"),
   printLabelsBtn: $("printLabelsBtn"),
+  scanQrBtn: $("scanQrBtn"),
   exportBtn: $("exportBtn"),
   importInput: $("importInput"),
   searchInput: $("searchInput"),
@@ -39,6 +42,12 @@ const els = {
   messageForm: $("messageForm"),
   messageOkBtn: $("messageOkBtn"),
   messageCancelBtn: $("messageCancelBtn"),
+  scannerDialog: $("scannerDialog"),
+  scannerForm: $("scannerForm"),
+  closeScannerBtn: $("closeScannerBtn"),
+  scannerCancelBtn: $("scannerCancelBtn"),
+  scannerVideo: $("scannerVideo"),
+  scannerStatus: $("scannerStatus"),
   printArea: $("printArea"),
 };
 
@@ -59,6 +68,79 @@ function resolveModal(value) {
   if (state.modalResolver) state.modalResolver(value);
   state.modalResolver = null;
   els.messageDialog.close();
+}
+
+
+function stopScanner() {
+  if (state.scannerInterval) {
+    clearInterval(state.scannerInterval);
+    state.scannerInterval = null;
+  }
+  if (state.scannerStream) {
+    state.scannerStream.getTracks().forEach((track) => track.stop());
+    state.scannerStream = null;
+  }
+  els.scannerVideo.srcObject = null;
+  if (els.scannerDialog.open) els.scannerDialog.close();
+}
+
+async function startScanner() {
+  if (!("mediaDevices" in navigator) || !navigator.mediaDevices.getUserMedia) {
+    await showModalMessage({ title: "Camera unavailable", message: "Your browser does not support camera scanning." });
+    return;
+  }
+  if (!("BarcodeDetector" in window)) {
+    await showModalMessage({ title: "Scanner unavailable", message: "QR scanning is not supported in this browser yet. Please open the app on a newer mobile browser." });
+    return;
+  }
+
+  const detector = new BarcodeDetector({ formats: ["qr_code"] });
+  els.scannerStatus.textContent = "Starting camera…";
+  els.scannerDialog.showModal();
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } },
+      audio: false,
+    });
+    state.scannerStream = stream;
+    els.scannerVideo.srcObject = stream;
+    await els.scannerVideo.play();
+    els.scannerStatus.textContent = "Scanning…";
+
+    state.scannerInterval = setInterval(async () => {
+      if (!els.scannerDialog.open) return;
+      try {
+        const barcodes = await detector.detect(els.scannerVideo);
+        const qr = barcodes.find((code) => code.rawValue);
+        if (!qr) return;
+
+        const scannedText = qr.rawValue;
+        let matched = null;
+
+        try {
+          const url = new URL(scannedText);
+          const code = url.hash.match(/tote=([^&]+)/)?.[1];
+          if (code) matched = state.totes.find((t) => t.qrCode === decodeURIComponent(code));
+        } catch {
+          matched = state.totes.find((t) => t.qrCode === scannedText);
+        }
+
+        if (matched) {
+          stopScanner();
+          openEditDialog(matched.id);
+          return;
+        }
+
+        els.scannerStatus.textContent = "QR scanned, but no matching local tote record found.";
+      } catch {
+        els.scannerStatus.textContent = "Scanning…";
+      }
+    }, 500);
+  } catch (error) {
+    stopScanner();
+    await showModalMessage({ title: "Camera error", message: "Unable to access the camera. Check camera permission and try again." });
+  }
 }
 
 function uid() {
@@ -362,6 +444,10 @@ function bindEvents() {
   els.messageCancelBtn.addEventListener("click", (e) => { e.preventDefault(); resolveModal(false); });
   els.messageDialog.addEventListener("cancel", (e) => { e.preventDefault(); resolveModal(false); });
   els.deleteBtn.addEventListener("click", () => { deleteCurrent(); });
+  els.scanQrBtn.addEventListener("click", startScanner);
+  els.closeScannerBtn.addEventListener("click", stopScanner);
+  els.scannerCancelBtn.addEventListener("click", stopScanner);
+  els.scannerDialog.addEventListener("cancel", (e) => { e.preventDefault(); stopScanner(); });
   els.printLabelsBtn.addEventListener("click", () => printLabels(state.totes));
   els.exportBtn.addEventListener("click", exportJson);
   els.importInput.addEventListener("change", (e) => importJson(e.target.files?.[0]));
