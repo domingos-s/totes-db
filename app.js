@@ -4,6 +4,7 @@ const APP_URL_BASE = `${location.origin}${location.pathname}`;
 const state = {
   totes: [],
   editingId: null,
+  dialogGeo: null,
   deferredPrompt: null,
   modalResolver: null,
   scannerStream: null,
@@ -54,6 +55,32 @@ const els = {
   scannerStatus: $("scannerStatus"),
   printArea: $("printArea"),
 };
+
+function normalizeGeo(value) {
+  if (!value || typeof value !== "object") return null;
+  const lat = Number(value.lat);
+  const lng = Number(value.lng);
+  const accuracy = Number(value.accuracy);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(accuracy)) return null;
+
+  return {
+    lat,
+    lng,
+    accuracy,
+    capturedAt: value.capturedAt || new Date().toISOString(),
+  };
+}
+
+function updateGeoReadout() {
+  if (!state.dialogGeo) {
+    els.geoReadout.textContent = "No GPS fix captured.";
+    return;
+  }
+
+  const { lat, lng, accuracy, capturedAt } = state.dialogGeo;
+  const captured = new Date(capturedAt).toLocaleString();
+  els.geoReadout.textContent = `GPS captured: ${lat.toFixed(6)}, ${lng.toFixed(6)} (±${Math.round(accuracy)}m) at ${captured}`;
+}
 
 function showModalMessage({ title = "Notice", message = "", showCancel = false, okLabel = "OK", cancelLabel = "Cancel" }) {
   els.messageTitle.textContent = title;
@@ -283,6 +310,8 @@ function openNewDialog() {
   els.longitude.value = "";
   els.locationHelp.textContent = "Optional: type a location label or capture GPS. You can update this later when editing.";
   els.season.value = "";
+  state.dialogGeo = null;
+  updateGeoReadout();
   els.toteDialog.showModal();
   els.title.focus();
 }
@@ -303,6 +332,8 @@ function openEditDialog(id) {
   els.longitude.value = tote.longitude == null ? "" : String(tote.longitude);
   els.locationHelp.textContent = "Optional: type a location label or capture GPS. You can update this later when editing.";
   els.season.value = tote.season;
+  state.dialogGeo = normalizeGeo(tote.geo);
+  updateGeoReadout();
   els.toteDialog.showModal();
   els.title.focus();
 }
@@ -477,6 +508,7 @@ async function importJson(file) {
       longitude: parseCoordinate(item.longitude),
       createdAt: item.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      geo: normalizeGeo(item.geo),
     })).filter((item) => item.title && item.contents);
 
     const ok = await showModalMessage({ title: "Import records", message: `Import ${normalized.length} tote records? This will merge with your current records.`, showCancel: true, okLabel: "Import" });
@@ -492,6 +524,48 @@ async function importJson(file) {
   } finally {
     els.importInput.value = "";
   }
+}
+
+async function captureCurrentLocation() {
+  if (!("geolocation" in navigator)) {
+    await showModalMessage({
+      title: "Location unavailable",
+      message: "This browser does not support location capture. Enter location text manually instead.",
+    });
+    return;
+  }
+
+  const position = await new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0,
+    });
+  }).catch((error) => error);
+
+  if (position && typeof position.code === "number") {
+    const code = position.code;
+    const msg = code === 1
+      ? "Location permission was denied. Allow location access in browser settings, then tap \"Use current location\" again."
+      : code === 2
+        ? "Your position could not be determined. Move to an area with better signal, then try again."
+        : "Location request timed out. Try again, or enter location text manually.";
+    await showModalMessage({ title: "Location not captured", message: msg });
+    return;
+  }
+
+  if (!position?.coords) {
+    await showModalMessage({ title: "Location error", message: "Unexpected location response. Please try again." });
+    return;
+  }
+
+  state.dialogGeo = {
+    lat: position.coords.latitude,
+    lng: position.coords.longitude,
+    accuracy: position.coords.accuracy,
+    capturedAt: new Date().toISOString(),
+  };
+  updateGeoReadout();
 }
 
 function openFromHash() {
