@@ -36,6 +36,10 @@ const els = {
   contents: $("contents"),
   season: $("season"),
   location: $("location"),
+  latitude: $("latitude"),
+  longitude: $("longitude"),
+  captureLocationBtn: $("captureLocationBtn"),
+  locationHelp: $("locationHelp"),
   messageDialog: $("messageDialog"),
   messageTitle: $("messageTitle"),
   messageBody: $("messageBody"),
@@ -275,6 +279,9 @@ function openNewDialog() {
   els.title.value = "";
   els.contents.value = "";
   els.location.value = "";
+  els.latitude.value = "";
+  els.longitude.value = "";
+  els.locationHelp.textContent = "Optional: type a location label or capture GPS. You can update this later when editing.";
   els.season.value = "";
   els.toteDialog.showModal();
   els.title.focus();
@@ -292,6 +299,9 @@ function openEditDialog(id) {
   els.title.value = tote.title;
   els.contents.value = tote.contents;
   els.location.value = tote.location || "";
+  els.latitude.value = tote.latitude == null ? "" : String(tote.latitude);
+  els.longitude.value = tote.longitude == null ? "" : String(tote.longitude);
+  els.locationHelp.textContent = "Optional: type a location label or capture GPS. You can update this later when editing.";
   els.season.value = tote.season;
   els.toteDialog.showModal();
   els.title.focus();
@@ -312,11 +322,15 @@ function upsertFromForm() {
     contents: els.contents.value.trim(),
     season: els.season.value,
     location: els.location.value.trim(),
+    latitude: parseCoordinate(els.latitude.value),
+    longitude: parseCoordinate(els.longitude.value),
     createdAt: existing?.createdAt || now,
     updatedAt: now,
   };
 
-  if (!record.title || !record.contents || !record.season || !record.location) return;
+  const hasGeo = Number.isFinite(record.latitude) && Number.isFinite(record.longitude);
+  if (!record.title || !record.contents || !record.season || (!record.location && !hasGeo)) return;
+  if (!record.location && hasGeo) record.location = "GPS captured";
 
   if (existing) {
     Object.assign(existing, record);
@@ -327,6 +341,44 @@ function upsertFromForm() {
   save();
   closeDialog();
   render();
+}
+
+function parseCoordinate(value) {
+  if (value === "" || value == null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+async function captureLocation() {
+  if (!("geolocation" in navigator)) {
+    await showModalMessage({ title: "Location unavailable", message: "Geolocation is not supported in this browser." });
+    return;
+  }
+
+  const original = els.captureLocationBtn.textContent;
+  els.captureLocationBtn.disabled = true;
+  els.captureLocationBtn.textContent = "Capturing…";
+
+  try {
+    const position = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      });
+    });
+    els.latitude.value = String(position.coords.latitude);
+    els.longitude.value = String(position.coords.longitude);
+    if (!els.location.value.trim()) {
+      els.location.value = "GPS captured";
+    }
+    els.locationHelp.textContent = "GPS captured. You can keep this label or replace it with your own location text.";
+  } catch {
+    await showModalMessage({ title: "Location capture failed", message: "Unable to capture GPS location. Check location permission and try again." });
+  } finally {
+    els.captureLocationBtn.disabled = false;
+    els.captureLocationBtn.textContent = original;
+  }
 }
 
 async function deleteCurrent() {
@@ -421,6 +473,8 @@ async function importJson(file) {
       contents: String(item.contents || "").trim(),
       season: item.season || "Year-round",
       location: String(item.location || "").trim() || "Unspecified",
+      latitude: parseCoordinate(item.latitude),
+      longitude: parseCoordinate(item.longitude),
       createdAt: item.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })).filter((item) => item.title && item.contents);
@@ -471,6 +525,7 @@ function bindEvents() {
   els.importInput.addEventListener("change", (e) => importJson(e.target.files?.[0]));
   els.searchInput.addEventListener("input", render);
   els.seasonFilter.addEventListener("change", render);
+  els.captureLocationBtn.addEventListener("click", captureLocation);
 
   els.toteForm.addEventListener("submit", (e) => {
     e.preventDefault();
