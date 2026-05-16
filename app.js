@@ -470,8 +470,18 @@ async function printLabels(totes = state.totes) {
 
 function buildMapUrl(tote) {
   if (!Number.isFinite(tote.latitude) || !Number.isFinite(tote.longitude)) return null;
-  const coords = `${tote.latitude},${tote.longitude}`;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coords)}`;
+
+  const lat = tote.latitude;
+  const lng = tote.longitude;
+  const coords = `${lat},${lng}`;
+  const label = tote.qrCode || tote.title || "Tote";
+  const isAppleDevice = /iPad|iPhone|iPod|Mac/.test(navigator.userAgent);
+
+  if (isAppleDevice) {
+    return `https://maps.apple.com/?ll=${encodeURIComponent(coords)}&q=${encodeURIComponent(label)}`;
+  }
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${coords} (${label})`)}`;
 }
 
 async function openMapForTote(tote) {
