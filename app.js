@@ -84,17 +84,34 @@ function stopScanner() {
   if (els.scannerDialog.open) els.scannerDialog.close();
 }
 
+function findMatchingTote(scannedText) {
+  try {
+    const url = new URL(scannedText);
+    const code = url.hash.match(/tote=([^&]+)/)?.[1];
+    if (code) return state.totes.find((t) => t.qrCode === decodeURIComponent(code));
+  } catch {
+    // Not a URL, treat as raw tote code.
+  }
+  return state.totes.find((t) => t.qrCode === scannedText);
+}
+
 async function startScanner() {
   if (!("mediaDevices" in navigator) || !navigator.mediaDevices.getUserMedia) {
     await showModalMessage({ title: "Camera unavailable", message: "Your browser does not support camera scanning." });
     return;
   }
-  if (!("BarcodeDetector" in window)) {
-    await showModalMessage({ title: "Scanner unavailable", message: "QR scanning is not supported in this browser yet. Please open the app on a newer mobile browser." });
+
+  const supportsBarcodeDetector = "BarcodeDetector" in window;
+  const supportsJsQr = typeof window.jsQR === "function";
+  if (!supportsBarcodeDetector && !supportsJsQr) {
+    await showModalMessage({ title: "Scanner unavailable", message: "QR scanning is unavailable. Please update your browser or use a different one." });
     return;
   }
 
-  const detector = new BarcodeDetector({ formats: ["qr_code"] });
+  const detector = supportsBarcodeDetector ? new BarcodeDetector({ formats: ["qr_code"] }) : null;
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+
   els.scannerStatus.textContent = "Starting camera…";
   els.scannerDialog.showModal();
 
@@ -111,21 +128,22 @@ async function startScanner() {
     state.scannerInterval = setInterval(async () => {
       if (!els.scannerDialog.open) return;
       try {
-        const barcodes = await detector.detect(els.scannerVideo);
-        const qr = barcodes.find((code) => code.rawValue);
-        if (!qr) return;
+        let scannedText = null;
 
-        const scannedText = qr.rawValue;
-        let matched = null;
-
-        try {
-          const url = new URL(scannedText);
-          const code = url.hash.match(/tote=([^&]+)/)?.[1];
-          if (code) matched = state.totes.find((t) => t.qrCode === decodeURIComponent(code));
-        } catch {
-          matched = state.totes.find((t) => t.qrCode === scannedText);
+        if (detector) {
+          const barcodes = await detector.detect(els.scannerVideo);
+          scannedText = barcodes.find((code) => code.rawValue)?.rawValue || null;
+        } else if (context && els.scannerVideo.videoWidth && els.scannerVideo.videoHeight) {
+          canvas.width = els.scannerVideo.videoWidth;
+          canvas.height = els.scannerVideo.videoHeight;
+          context.drawImage(els.scannerVideo, 0, 0, canvas.width, canvas.height);
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+          scannedText = window.jsQR(imageData.data, imageData.width, imageData.height)?.data || null;
         }
 
+        if (!scannedText) return;
+
+        const matched = findMatchingTote(scannedText);
         if (matched) {
           stopScanner();
           openEditDialog(matched.id);
