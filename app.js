@@ -5,6 +5,7 @@ const state = {
   totes: [],
   editingId: null,
   deferredPrompt: null,
+  modalResolver: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -31,8 +32,34 @@ const els = {
   title: $("title"),
   contents: $("contents"),
   season: $("season"),
+  location: $("location"),
+  messageDialog: $("messageDialog"),
+  messageTitle: $("messageTitle"),
+  messageBody: $("messageBody"),
+  messageForm: $("messageForm"),
+  messageOkBtn: $("messageOkBtn"),
+  messageCancelBtn: $("messageCancelBtn"),
   printArea: $("printArea"),
 };
+
+function showModalMessage({ title = "Notice", message = "", showCancel = false, okLabel = "OK", cancelLabel = "Cancel" }) {
+  els.messageTitle.textContent = title;
+  els.messageBody.textContent = message;
+  els.messageOkBtn.textContent = okLabel;
+  els.messageCancelBtn.textContent = cancelLabel;
+  els.messageCancelBtn.classList.toggle("hidden", !showCancel);
+
+  return new Promise((resolve) => {
+    state.modalResolver = resolve;
+    els.messageDialog.showModal();
+  });
+}
+
+function resolveModal(value) {
+  if (state.modalResolver) state.modalResolver(value);
+  state.modalResolver = null;
+  els.messageDialog.close();
+}
 
 function uid() {
   const segment = () => Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -85,7 +112,7 @@ function filteredTotes() {
 
   return state.totes.filter((tote) => {
     const matchesSeason = !season || tote.season === season;
-    const haystack = `${tote.qrCode} ${tote.title} ${tote.contents} ${tote.season}`.toLowerCase();
+    const haystack = `${tote.qrCode} ${tote.title} ${tote.contents} ${tote.location || ""} ${tote.season}`.toLowerCase();
     const matchesQuery = !q || haystack.includes(q);
     return matchesSeason && matchesQuery;
   });
@@ -112,6 +139,7 @@ async function render() {
           <div class="qr-id">Scan opens this record</div>
         </div>
       </div>
+      <div class="qr-id">Location: ${escapeHtml(tote.location || "Unspecified")}</div>
       <div class="contents">${escapeHtml(tote.contents)}</div>
       <div class="card-actions">
         <button class="secondary" data-action="edit" data-id="${tote.id}">Edit</button>
@@ -146,6 +174,7 @@ function openNewDialog() {
   els.qrCode.value = uid();
   els.title.value = "";
   els.contents.value = "";
+  els.location.value = "";
   els.season.value = "";
   els.toteDialog.showModal();
   els.title.focus();
@@ -162,6 +191,7 @@ function openEditDialog(id) {
   els.qrCode.value = tote.qrCode;
   els.title.value = tote.title;
   els.contents.value = tote.contents;
+  els.location.value = tote.location || "";
   els.season.value = tote.season;
   els.toteDialog.showModal();
   els.title.focus();
@@ -181,11 +211,12 @@ function upsertFromForm() {
     title: els.title.value.trim(),
     contents: els.contents.value.trim(),
     season: els.season.value,
+    location: els.location.value.trim(),
     createdAt: existing?.createdAt || now,
     updatedAt: now,
   };
 
-  if (!record.title || !record.contents || !record.season) return;
+  if (!record.title || !record.contents || !record.season || !record.location) return;
 
   if (existing) {
     Object.assign(existing, record);
@@ -198,10 +229,10 @@ function upsertFromForm() {
   render();
 }
 
-function deleteCurrent() {
+async function deleteCurrent() {
   if (!state.editingId) return;
   const tote = state.totes.find((t) => t.id === state.editingId);
-  const ok = confirm(`Delete "${tote?.title || "this tote"}"?`);
+  const ok = await showModalMessage({ title: "Delete tote", message: `Delete "${tote?.title || "this tote"}"?`, showCancel: true, okLabel: "Delete" });
   if (!ok) return;
 
   state.totes = state.totes.filter((t) => t.id !== state.editingId);
@@ -212,7 +243,7 @@ function deleteCurrent() {
 
 async function printLabels(totes = state.totes) {
   if (!totes.length) {
-    alert("Add at least one tote before printing labels.");
+    await showModalMessage({ title: "No totes", message: "Add at least one tote before printing labels." });
     return;
   }
 
@@ -225,6 +256,7 @@ async function printLabels(totes = state.totes) {
       <canvas></canvas>
       <div>
         <div class="print-title">${escapeHtml(tote.title)}</div>
+        <div class="print-season">Location: ${escapeHtml(tote.location || "Unspecified")}</div>
         <div class="print-season">Season: ${escapeHtml(tote.season)}</div>
         <div class="print-code">${escapeHtml(tote.qrCode)}</div>
         <div class="print-contents">${escapeHtml(tote.contents)}</div>
@@ -235,7 +267,7 @@ async function printLabels(totes = state.totes) {
       await renderQRCode(label.querySelector("canvas"), qrPayload(tote.qrCode), 180);
     } catch (error) {
       console.warn(error);
-      alert("QR code generator failed to load. Check your internet connection and refresh.");
+      await showModalMessage({ title: "QR unavailable", message: "QR code generator failed to load. Check your internet connection and refresh." });
       return;
     }
   }
@@ -250,7 +282,7 @@ async function downloadQRCode(tote) {
     await renderQRCode(canvas, qrPayload(tote.qrCode), 512);
   } catch (error) {
     console.warn(error);
-    alert("QR code generator failed to load. Check your internet connection and refresh.");
+    await showModalMessage({ title: "QR unavailable", message: "QR code generator failed to load. Check your internet connection and refresh." });
     return;
   }
 
@@ -288,11 +320,12 @@ async function importJson(file) {
       title: String(item.title || "").trim(),
       contents: String(item.contents || "").trim(),
       season: item.season || "Year-round",
+      location: String(item.location || "").trim() || "Unspecified",
       createdAt: item.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })).filter((item) => item.title && item.contents);
 
-    const ok = confirm(`Import ${normalized.length} tote records? This will merge with your current records.`);
+    const ok = await showModalMessage({ title: "Import records", message: `Import ${normalized.length} tote records? This will merge with your current records.`, showCancel: true, okLabel: "Import" });
     if (!ok) return;
 
     const byQr = new Map(state.totes.map((t) => [t.qrCode, t]));
@@ -301,7 +334,7 @@ async function importJson(file) {
     save();
     render();
   } catch (error) {
-    alert("Could not import that JSON file.");
+    await showModalMessage({ title: "Import failed", message: "Could not import that JSON file." });
   } finally {
     els.importInput.value = "";
   }
@@ -316,7 +349,7 @@ function openFromHash() {
   if (tote) {
     openEditDialog(tote.id);
   } else {
-    alert(`No local record found for QR code: ${code}`);
+    showModalMessage({ title: "Record not found", message: `No local record found for QR code: ${code}` });
   }
 }
 
@@ -325,7 +358,10 @@ function bindEvents() {
   els.emptyNewToteBtn.addEventListener("click", openNewDialog);
   els.closeDialogBtn.addEventListener("click", closeDialog);
   els.cancelBtn.addEventListener("click", closeDialog);
-  els.deleteBtn.addEventListener("click", deleteCurrent);
+  els.messageOkBtn.addEventListener("click", (e) => { e.preventDefault(); resolveModal(true); });
+  els.messageCancelBtn.addEventListener("click", (e) => { e.preventDefault(); resolveModal(false); });
+  els.messageDialog.addEventListener("cancel", (e) => { e.preventDefault(); resolveModal(false); });
+  els.deleteBtn.addEventListener("click", () => { deleteCurrent(); });
   els.printLabelsBtn.addEventListener("click", () => printLabels(state.totes));
   els.exportBtn.addEventListener("click", exportJson);
   els.importInput.addEventListener("change", (e) => importJson(e.target.files?.[0]));
